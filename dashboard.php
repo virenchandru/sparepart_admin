@@ -327,7 +327,7 @@ $nama_admin = $_SESSION['nama'];
     document.getElementById('logoutBtn').addEventListener('click', async () => {
         if (confirm('Yakin ingin logout?')) {
             await apiPost('logout', {});
-            window.location.href = 'index.php';
+            window.location.href = 'login.php';
         }
     });
 
