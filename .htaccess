@@ -1,0 +1,14 @@
+RewriteEngine On
+
+# Jangan ubah route untuk file static CSS dan JS
+RewriteRule ^css/(.*)$ css/$1 [L]
+RewriteRule ^js/(.*)$ js/$1 [L]
+
+# Arahkan file PHP utama ke folder api/
+RewriteRule ^login\.php$ api/login.php [L]
+RewriteRule ^dashboard\.php$ api/dashboard.php [L]
+RewriteRule ^api\.php$ api/api.php [L]
+RewriteRule ^koneksi\.php$ api/koneksi.php [L]
+
+# Arahkan root URL ke login.php di folder api
+RewriteRule ^$ api/login.php [L]
