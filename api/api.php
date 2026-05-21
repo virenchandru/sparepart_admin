@@ -28,9 +28,11 @@ switch ($action) {
         $result = mysqli_query($conn, "SELECT * FROM admin WHERE username='$username' AND password='$password'");
         if (mysqli_num_rows($result) == 1) {
             $admin = mysqli_fetch_assoc($result);
-            $_SESSION['admin']    = $admin['id_admin'];
-            $_SESSION['nama']     = $admin['nama'];
-            $_SESSION['username'] = $admin['username'];
+            write_session([
+                'admin' => $admin['id_admin'],
+                'nama' => $admin['nama'],
+                'username' => $admin['username']
+            ]);
             echo json_encode(['success' => true, 'nama' => $admin['nama'], 'id' => $admin['id_admin']]);
         } else {
             echo json_encode(['success' => false, 'message' => 'Username atau password salah']);
