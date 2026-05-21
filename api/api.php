@@ -1,5 +1,5 @@
 <?php
-session_start();
+include 'session.php';
 include 'koneksi.php';
 
 header('Content-Type: application/json');
@@ -38,7 +38,7 @@ switch ($action) {
         break;
 
     case 'logout':
-        session_destroy();
+        destroy_session();
         echo json_encode(['success' => true]);
         break;
 

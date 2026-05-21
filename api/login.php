@@ -1,5 +1,5 @@
 <?php
-session_start();
+include 'session.php';
 if (isset($_SESSION['admin'])) {
     header("Location: dashboard.php");
     exit();
