@@ -11,159 +11,69 @@ $nama_admin = $_SESSION['nama'];
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard</title>
-    <link rel="stylesheet" href="css/style.css">
+    <title>Admin Dashboard — Sistem Manajemen Toko</title>
+    <meta name="description" content="Dashboard admin untuk manajemen toko: produk, pelanggan, transaksi, stok.">
+    <link rel="stylesheet" href="css/style.css?v=<?= time() ?>">
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <script>
+        // Set theme immediately to prevent FOUC
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        if (savedTheme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+    </script>
 </head>
 <body>
     <div class="dashboard-container">
+
+        <!-- SIDEBAR OVERLAY (mobile) -->
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
         <!-- SIDEBAR -->
-        <div class="sidebar">
+        <div class="sidebar" id="sidebar">
             <div class="sidebar-header">
-                <h2>Admin Panel</h2>
+                <h2><i data-lucide="zap" class="icon" style="width:22px;height:22px;color:var(--accent-light);"></i> Admin Panel</h2>
                 <p class="user-info">Halo, <span id="userName"><?= htmlspecialchars($nama_admin) ?></span></p>
             </div>
             <ul class="sidebar-menu">
-                <li><a href="#" data-section="dashboard" class="active">Dashboard</a></li>
-                <li><a href="#" data-section="customers">Pelanggan</a></li>
-                <li><a href="#" data-section="products">Produk</a></li>
-                <li><a href="#" data-section="purchases">Restock</a></li>
-                <li><a href="#" data-section="transactions">Penjualan</a></li>
-                <li><a href="#" data-section="stock">Stok</a></li>
+                <li><a href="#" data-section="dashboard" class="active"><span class="menu-icon"><i data-lucide="layout-dashboard" class="icon"></i></span> Dashboard</a></li>
+                <li><a href="#" data-section="customers"><span class="menu-icon"><i data-lucide="users" class="icon"></i></span> Pelanggan</a></li>
+                <li><a href="#" data-section="products"><span class="menu-icon"><i data-lucide="package" class="icon"></i></span> Produk</a></li>
+
+                <li><a href="#" data-section="purchases"><span class="menu-icon"><i data-lucide="shopping-cart" class="icon"></i></span> Restock</a></li>
+                <li><a href="#" data-section="transactions"><span class="menu-icon"><i data-lucide="receipt" class="icon"></i></span> Penjualan</a></li>
             </ul>
         </div>
 
         <!-- MAIN CONTENT -->
         <div class="main-content">
             <div class="topbar">
-                <h1 id="pageTitle">Dashboard</h1>
-                <button class="logout-btn" id="logoutBtn">Logout</button>
+                <div class="topbar-left">
+                    <button class="hamburger" id="hamburgerBtn" aria-label="Toggle Menu">
+                        <span></span><span></span><span></span>
+                    </button>
+                    <h1 id="pageTitle">Dashboard</h1>
+                </div>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <button id="themeToggleBtn" class="btn" style="border-radius:50%; width:40px; height:40px; padding:0; display:flex; align-items:center; justify-content:center; background:var(--surface); color:var(--text); box-shadow:var(--shadow);" aria-label="Toggle Theme">
+                        <i data-lucide="moon" id="themeIcon"></i>
+                    </button>
+                    <button class="logout-btn" id="logoutBtn">Logout</button>
+                </div>
             </div>
 
             <div class="page-content">
+                <?php include 'views/dashboard_home.php'; ?>
+                <?php include 'views/pelanggan.php'; ?>
+                <?php include 'views/produk.php'; ?>
 
-                <!-- DASHBOARD -->
-                <div id="dashboardSection" class="content-section active">
-                    <h2>Selamat Datang, <?= htmlspecialchars($nama_admin) ?></h2>
-                    <p>Kelola toko Anda dengan mudah melalui dashboard ini.</p>
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-top: 20px;">
-                        <div class="card">
-                            <div class="card-icon">👥</div>
-                            <div class="card-header">Total Pelanggan</div>
-                            <div style="font-size:24px;font-weight:bold;color:var(--accent-color);" id="totalCustomers">-</div>
-                        </div>
-                        <div class="card">
-                            <div class="card-icon">📦</div>
-                            <div class="card-header">Total Produk</div>
-                            <div style="font-size:24px;font-weight:bold;color:var(--success-color);" id="totalProducts">-</div>
-                        </div>
-                        <div class="card">
-                            <div class="card-icon">🧾</div>
-                            <div class="card-header">Total Transaksi</div>
-                            <div style="font-size:24px;font-weight:bold;color:var(--warning-color);" id="totalTransactions">-</div>
-                        </div>
-                        <div class="card">
-                            <div class="card-icon">🛒</div>
-                            <div class="card-header">Pembelian/Restock</div>
-                            <div style="font-size:24px;font-weight:bold;color:var(--danger-color);" id="totalPurchases">-</div>
-                        </div>
-                    </div>
-                    <div class="card mt-20" id="produkLarisCard" style="display:none;">
-                        <div class="card-header">🏆 Produk Paling Laris</div>
-                        <div style="font-size:18px;font-weight:bold;color:var(--accent-color);margin-top:8px;" id="produkLaris">-</div>
-                    </div>
-                </div>
-
-                <!-- PELANGGAN -->
-                <div id="customersSection" class="content-section">
-                    <div class="section-header">
-                        <h2>Manajemen Pelanggan</h2>
-                        <button class="btn btn-primary" onclick="showCustomerModal()">+ Tambah Pelanggan</button>
-                    </div>
-                    <div class="table-container">
-                        <table class="table" id="customersTable">
-                            <thead><tr><th>ID</th><th>Nama</th><th>No HP</th><th>Alamat</th><th>Aksi</th></tr></thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <!-- PRODUK -->
-                <div id="productsSection" class="content-section">
-                    <div class="section-header">
-                        <h2>Manajemen Produk</h2>
-                        <button class="btn btn-primary" onclick="showProductModal()">+ Tambah Produk</button>
-                    </div>
-                    <div class="table-container">
-                        <table class="table" id="productsTable">
-                            <thead><tr><th>ID</th><th>Nama Produk</th><th>Harga</th><th>Stok</th><th>Jenis</th><th>Aksi</th></tr></thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <!-- PEMBELIAN -->
-                <div id="purchasesSection" class="content-section">
-                    <div class="section-header">
-                        <h2>Pembelian / Restock Barang</h2>
-                        <button class="btn btn-primary" onclick="showPurchaseModal()">+ Input Pembelian</button>
-                    </div>
-                    <div class="table-container">
-                        <table class="table" id="purchasesTable">
-                            <thead><tr><th>ID</th><th>Tanggal</th><th>Produk</th><th>Jumlah</th><th>Harga Beli</th><th>Status</th><th>Aksi</th></tr></thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <!-- TRANSAKSI -->
-                <div id="transactionsSection" class="content-section">
-                    <div class="section-header">
-                        <h2>Transaksi Penjualan</h2>
-                        <button class="btn btn-primary" onclick="showTransactionModal()">+ Buat Transaksi</button>
-                    </div>
-                    <div class="table-container">
-                        <table class="table" id="transactionsTable">
-                            <thead><tr><th>ID</th><th>Tanggal</th><th>Pelanggan</th><th>Admin</th><th>Total</th><th>Aksi</th></tr></thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <!-- STOK -->
-                <div id="stockSection" class="content-section">
-                    <div class="section-header"><h2>Manajemen Stok</h2></div>
-                    <div class="table-container">
-                        <table class="table" id="stockTable">
-                            <thead><tr><th>ID</th><th>Nama Produk</th><th>Stok</th><th>Status</th></tr></thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                </div>
-
+                <?php include 'views/pembelian.php'; ?>
+                <?php include 'views/transaksi.php'; ?>
             </div>
         </div>
     </div>
 
-    <!-- MODAL PELANGGAN -->
-    <div id="customerModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <span id="customerModalTitle">Tambah Pelanggan</span>
-                <button class="close-btn" onclick="closeModal('customerModal')">&times;</button>
-            </div>
-            <div class="modal-body">
-                <input type="hidden" id="customerId">
-                <div class="form-group"><label>Nama</label><input type="text" id="namaCustomer"></div>
-                <div class="form-group"><label>No HP</label><input type="text" id="noHpCustomer"></div>
-                <div class="form-group"><label>Alamat</label><textarea id="alamatCustomer" rows="3"></textarea></div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="closeModal('customerModal')">Batal</button>
-                <button class="btn btn-primary" onclick="saveCustomer()">Simpan</button>
-            </div>
-        </div>
-    </div>
+    <?php include 'views/modals.php'; ?>
 
+<<<<<<< Updated upstream
     <!-- MODAL PRODUK -->
     <div id="productModal" class="modal">
         <div class="modal-content">
@@ -614,5 +524,8 @@ $nama_admin = $_SESSION['nama'];
     // ===== INIT =====
     loadStats();
     </script>
+=======
+    <script src="js/app.js?v=<?= time() ?>"></script>
+>>>>>>> Stashed changes
 </body>
 </html>

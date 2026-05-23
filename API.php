@@ -11,15 +11,17 @@ if ($action !== 'login' && !isset($_SESSION['admin'])) {
     echo json_encode(['success' => false, 'message' => 'Unauthorized']);
     exit();
 }
+//kalau ga login ga bisa ngeakses data, jadi distop dulu 
+
 
 $method = $_SERVER['REQUEST_METHOD'];
 
-// Ambil JSON body jika ada
+// Ambil JSON body 
 $body = json_decode(file_get_contents('php://input'), true) ?? [];
 
 switch ($action) {
 
-    // ==================== AUTH ====================
+    //nyocokin data 
     case 'login':
         $username = $body['username'] ?? '';
         $password = $body['password'] ?? '';
@@ -57,19 +59,38 @@ switch ($action) {
         $total_transaksi = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as total FROM transaksi"))['total'];
         $total_pembelian = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as total FROM pembelian"))['total'];
 
+        // Produk paling laris
         $laris = mysqli_fetch_assoc(mysqli_query($conn,
-            "SELECT nama_produk FROM produk WHERE id_produk = (
-                SELECT id_produk FROM detail_transaksi
-                GROUP BY id_produk ORDER BY SUM(jumlah) DESC LIMIT 1
-            )"
+            "SELECT p.nama_produk, SUM(dt.jumlah) as total_jual FROM detail_transaksi dt
+             JOIN produk p ON dt.id_produk = p.id_produk
+             GROUP BY dt.id_produk ORDER BY total_jual DESC LIMIT 1"
+        ));
+
+        // Produk paling tidak laris
+        $tidak_laris = mysqli_fetch_assoc(mysqli_query($conn,
+            "SELECT p.nama_produk, COALESCE(SUM(dt.jumlah), 0) as total_jual FROM produk p
+             LEFT JOIN detail_transaksi dt ON p.id_produk = dt.id_produk
+             GROUP BY p.id_produk ORDER BY total_jual ASC LIMIT 1"
+        ));
+
+        // Pelanggan paling banyak transaksi
+        $top_pelanggan = mysqli_fetch_assoc(mysqli_query($conn,
+            "SELECT pl.nama, COUNT(t.id_transaksi) as total_transaksi FROM transaksi t
+             JOIN pelanggan pl ON t.id_pelanggan = pl.id_pelanggan
+             GROUP BY t.id_pelanggan ORDER BY total_transaksi DESC LIMIT 1"
         ));
 
         echo json_encode([
-            'total_produk'    => $total_produk,
-            'total_pelanggan' => $total_pelanggan,
-            'total_transaksi' => $total_transaksi,
-            'total_pembelian' => $total_pembelian,
-            'produk_laris'    => $laris ? $laris['nama_produk'] : '-'
+            'total_produk'      => $total_produk,
+            'total_pelanggan'   => $total_pelanggan,
+            'total_transaksi'   => $total_transaksi,
+            'total_pembelian'   => $total_pembelian,
+            'produk_laris'      => $laris ? $laris['nama_produk'] : '-',
+            'produk_laris_qty'  => $laris ? (int)$laris['total_jual'] : 0,
+            'produk_tidak_laris'     => $tidak_laris ? $tidak_laris['nama_produk'] : '-',
+            'produk_tidak_laris_qty' => $tidak_laris ? (int)$tidak_laris['total_jual'] : 0,
+            'top_pelanggan'          => $top_pelanggan ? $top_pelanggan['nama'] : '-',
+            'top_pelanggan_transaksi'=> $top_pelanggan ? (int)$top_pelanggan['total_transaksi'] : 0
         ]);
         break;
 
@@ -175,9 +196,10 @@ switch ($action) {
         // Ambil data lama dulu
         $old = mysqli_fetch_assoc(mysqli_query($conn, "SELECT * FROM pembelian WHERE id_pembelian=$id"));
         $q   = mysqli_query($conn, "UPDATE pembelian SET status='$status_baru' WHERE id_pembelian=$id");
-        // Kalau baru jadi diterima, tambah stok
+        // Kalau baru jadi diterima, tambah stok lalu hapus record
         if ($q && strtolower($status_baru) === 'diterima' && strtolower($old['status']) !== 'diterima') {
             mysqli_query($conn, "UPDATE produk SET stok = stok + {$old['jumlah']} WHERE id_produk = {$old['id_produk']}");
+            mysqli_query($conn, "DELETE FROM pembelian WHERE id_pembelian=$id");
         }
         echo json_encode(['success' => (bool)$q]);
         break;
