@@ -88,6 +88,7 @@ if (isset($_SESSION['admin'])) {
             btn.style.opacity = '0.7';
             errorDiv.classList.remove('show');
 
+            // ngefetch api buat ngecek password yang di input
             try {
                 const res = await fetch('api.php?action=login', {
                     method: 'POST',

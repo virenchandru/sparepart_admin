@@ -96,7 +96,23 @@ switch ($action) {
 
     // ==================== PELANGGAN ====================
     case 'get_pelanggan':
-        $result = mysqli_query($conn, "SELECT * FROM pelanggan ORDER BY id_pelanggan");
+        $search = mysqli_real_escape_string($conn, $_GET['search'] ?? '');
+        $alamat = mysqli_real_escape_string($conn, $_GET['alamat'] ?? '');
+        $sort   = $_GET['sort'] ?? 'default';
+
+        $where = [];
+        if ($search) $where[] = "(nama LIKE '%$search%' OR no_hp LIKE '%$search%')";
+        if ($alamat) $where[] = "alamat LIKE '%$alamat%'";
+
+        $where_clause = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+
+        switch ($sort) {
+            case 'az': $order = 'ORDER BY nama ASC';          break;
+            case 'za': $order = 'ORDER BY nama DESC';         break;
+            default:   $order = 'ORDER BY id_pelanggan ASC';  break;
+        }
+
+        $result = mysqli_query($conn, "SELECT * FROM pelanggan $where_clause $order");
         $data = [];
         while ($row = mysqli_fetch_assoc($result)) $data[] = $row;
         echo json_encode($data);
@@ -128,9 +144,52 @@ switch ($action) {
 
     // ==================== PRODUK ====================
     case 'get_produk':
-        $result = mysqli_query($conn, "SELECT * FROM produk ORDER BY id_produk");
+        // Ambil parameter filter dari URL
+        $search      = mysqli_real_escape_string($conn, $_GET['search'] ?? '');
+        $category    = mysqli_real_escape_string($conn, $_GET['category'] ?? 'all');
+        $stock_filter = $_GET['stock_filter'] ?? 'all';
+        $sort        = $_GET['sort'] ?? 'default';
+
+        // Bangun kondisi WHERE secara dinamis
+        $where = [];
+        if ($search) {
+            $where[] = "(nama_produk LIKE '%$search%' OR jenis_produk LIKE '%$search%')";
+        }
+        if ($category !== 'all') {
+            $where[] = "jenis_produk = '$category'";
+        }
+        if ($stock_filter === 'in_stock')  $where[] = "stok > 10";
+        if ($stock_filter === 'low_stock') $where[] = "stok > 0 AND stok <= 10";
+        if ($stock_filter === 'out_stock') $where[] = "stok = 0";
+
+        $where_clause = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+
+        // Tentukan ORDER BY
+        switch ($sort) {
+            case 'az':         $order = 'ORDER BY nama_produk ASC';  break;
+            case 'za':         $order = 'ORDER BY nama_produk DESC'; break;
+            case 'price_low':  $order = 'ORDER BY harga ASC';        break;
+            case 'price_high': $order = 'ORDER BY harga DESC';       break;
+            case 'stock_low':  $order = 'ORDER BY stok ASC';         break;
+            case 'stock_high': $order = 'ORDER BY stok DESC';        break;
+            default:           $order = 'ORDER BY id_produk ASC';    break;
+        }
+
+        $result = mysqli_query($conn, "SELECT * FROM produk $where_clause $order");
         $data = [];
         while ($row = mysqli_fetch_assoc($result)) $data[] = $row;
+        echo json_encode($data);
+        break;
+
+    // Ambil daftar kategori unik (untuk dropdown filter)
+    case 'get_produk_categories':
+        $result = mysqli_query($conn,
+            "SELECT DISTINCT jenis_produk FROM produk
+             WHERE jenis_produk IS NOT NULL AND jenis_produk != ''
+             ORDER BY jenis_produk ASC"
+        );
+        $data = [];
+        while ($row = mysqli_fetch_assoc($result)) $data[] = $row['jenis_produk'];
         echo json_encode($data);
         break;
 
@@ -162,11 +221,22 @@ switch ($action) {
 
     // ==================== PEMBELIAN ====================
     case 'get_pembelian':
+        $search = mysqli_real_escape_string($conn, $_GET['search'] ?? '');
+        $status = mysqli_real_escape_string($conn, $_GET['status'] ?? 'all');
+
+        $where = [];
+        if ($search) $where[] = "(pr.nama_produk LIKE '%$search%' OR pb.tanggal LIKE '%$search%')";
+        if ($status !== 'all') $where[] = "pb.status = '$status'";
+
+        $where_clause = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+
         $result = mysqli_query($conn,
-            "SELECT pb.*, pr.nama_produk, a.nama AS nama_admin
+            "SELECT pb.*, pr.nama_produk, a.nama AS nama_admin, a2.nama AS nama_admin_penerima
              FROM pembelian pb
              JOIN produk pr ON pb.id_produk = pr.id_produk
              JOIN admin a ON pb.id_admin = a.id_admin
+             LEFT JOIN admin a2 ON pb.id_admin_penerima = a2.id_admin
+             $where_clause
              ORDER BY pb.id_pembelian DESC"
         );
         $data = [];
@@ -179,7 +249,7 @@ switch ($action) {
         $tanggal    = mysqli_real_escape_string($conn, $body['tanggal'] ?? date('Y-m-d'));
         $jumlah     = (int)($body['jumlah'] ?? 0);
         $harga_beli = (float)($body['harga_beli'] ?? 0);
-        $status     = mysqli_real_escape_string($conn, $body['status'] ?? 'pending');
+        $status     = mysqli_real_escape_string($conn, $body['status'] ?? 'diproses');
         $id_admin   = (int)$_SESSION['admin'];
         if (!$id_produk || !$jumlah) { echo json_encode(['success'=>false,'message'=>'Data tidak lengkap']); break; }
         $q = mysqli_query($conn, "INSERT INTO pembelian (id_produk, tanggal, jumlah, harga_beli, status, id_admin) VALUES ($id_produk,'$tanggal',$jumlah,$harga_beli,'$status',$id_admin)");
@@ -195,11 +265,19 @@ switch ($action) {
         $status_baru = mysqli_real_escape_string($conn, $body['status'] ?? '');
         // Ambil data lama dulu
         $old = mysqli_fetch_assoc(mysqli_query($conn, "SELECT * FROM pembelian WHERE id_pembelian=$id"));
-        $q   = mysqli_query($conn, "UPDATE pembelian SET status='$status_baru' WHERE id_pembelian=$id");
-        // Kalau baru jadi diterima, tambah stok lalu hapus record
+        
+        $set_clause = "status='$status_baru'";
+        if (strtolower($status_baru) === 'diterima' && strtolower($old['status']) !== 'diterima') {
+            $id_admin_penerima = (int)$_SESSION['admin'];
+            $tanggal_diterima = date('Y-m-d H:i:s');
+            $set_clause .= ", id_admin_penerima=$id_admin_penerima, tanggal_diterima='$tanggal_diterima'";
+        }
+
+        $q   = mysqli_query($conn, "UPDATE pembelian SET $set_clause WHERE id_pembelian=$id");
+
+        // Kalau baru jadi diterima, tambah stok (jangan hapus data)
         if ($q && strtolower($status_baru) === 'diterima' && strtolower($old['status']) !== 'diterima') {
             mysqli_query($conn, "UPDATE produk SET stok = stok + {$old['jumlah']} WHERE id_produk = {$old['id_produk']}");
-            mysqli_query($conn, "DELETE FROM pembelian WHERE id_pembelian=$id");
         }
         echo json_encode(['success' => (bool)$q]);
         break;
@@ -212,23 +290,35 @@ switch ($action) {
 
     // ==================== TRANSAKSI ====================
     case 'get_transaksi':
+        $search = mysqli_real_escape_string($conn, $_GET['search'] ?? '');
+        $sort   = $_GET['sort'] ?? 'default';
+
+        $where = [];
+        if ($search) $where[] = "(p.nama LIKE '%$search%' OR a.nama LIKE '%$search%' OR t.tanggal LIKE '%$search%')";
+
+        $where_clause = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+
+        switch ($sort) {
+            case 'oldest':     $order = 'ORDER BY t.id_transaksi ASC';  break;
+            case 'total_high': $order = 'ORDER BY total DESC';          break;
+            case 'total_low':  $order = 'ORDER BY total ASC';           break;
+            default:           $order = 'ORDER BY t.id_transaksi DESC'; break;
+        }
+
+        // Total dihitung langsung via subquery di SELECT agar bisa di-ORDER BY
         $result = mysqli_query($conn,
-            "SELECT t.id_transaksi, t.tanggal, p.nama AS nama_pelanggan, a.nama AS nama_admin
+            "SELECT t.id_transaksi, t.tanggal,
+                    p.nama AS nama_pelanggan,
+                    a.nama AS nama_admin,
+                    (SELECT SUM(jumlah * harga) FROM detail_transaksi WHERE id_transaksi = t.id_transaksi) AS total
              FROM transaksi t
              JOIN pelanggan p ON t.id_pelanggan = p.id_pelanggan
              JOIN admin a ON t.id_admin = a.id_admin
-             ORDER BY t.id_transaksi DESC"
+             $where_clause
+             $order"
         );
         $data = [];
-        while ($row = mysqli_fetch_assoc($result)) {
-            // Hitung total
-            $id = $row['id_transaksi'];
-            $total = mysqli_fetch_assoc(mysqli_query($conn,
-                "SELECT SUM(jumlah * harga) as total FROM detail_transaksi WHERE id_transaksi=$id"
-            ))['total'] ?? 0;
-            $row['total'] = $total;
-            $data[] = $row;
-        }
+        while ($row = mysqli_fetch_assoc($result)) $data[] = $row;
         echo json_encode($data);
         break;
 

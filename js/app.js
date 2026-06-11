@@ -1,27 +1,31 @@
-// ===== HELPERS =====
-const apiGet  = (action, extra='') => fetch(`api.php?action=${action}${extra}`).then(r=>r.json());
-const apiPost = (action, body)     => fetch(`api.php?action=${action}`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(r=>r.json());
+//fetching ke server
 
+const apiGet = (action, extra = '') => fetch(`api.php?action=${action}${extra}`).then(r => r.json());
+const apiPost = (action, body) => fetch(`api.php?action=${action}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(r => r.json());
+
+//buat popup
 const closeModal = id => document.getElementById(id).classList.remove('show');
-const openModal  = id => document.getElementById(id).classList.add('show');
+const openModal = id => document.getElementById(id).classList.add('show');
 
-function showAlert(msg, type='success') {
+//notifikasi yang muncul diujung layar 
+function showAlert(msg, type = 'success') {
     const d = document.createElement('div');
     d.className = `alert alert-${type} show`;
     d.textContent = msg;
     d.style.cssText = 'position:fixed;top:20px;right:20px;z-index:10000;width:340px;max-width:90vw;';
     document.body.appendChild(d);
-    setTimeout(()=> {
+    setTimeout(() => {
         d.style.opacity = '0';
         d.style.transform = 'translateX(100%)';
         d.style.transition = 'all 0.3s ease';
-        setTimeout(()=>d.remove(), 300);
+        setTimeout(() => d.remove(), 300);
     }, 3000);
 }
 
+// format mata uang
 const rupiah = n => 'Rp ' + parseInt(n).toLocaleString('id-ID');
 
-// Animated counter
+// Animasi Angka
 function animateCount(el, target) {
     const dur = 600;
     const start = performance.now();
@@ -35,25 +39,30 @@ function animateCount(el, target) {
     requestAnimationFrame(update);
 }
 
-// ===== HAMBURGER MENU =====
+
+// ===== SIDEBAR & OVERLAY =====
 const sidebar = document.getElementById('sidebar');
 const overlay = document.getElementById('sidebarOverlay');
-const hamburger = document.getElementById('hamburgerBtn');
+const hamburgerBtn = document.getElementById('hamburgerBtn');
 
-hamburger.addEventListener('click', () => {
-    sidebar.classList.toggle('open');
-    overlay.classList.toggle('show');
-});
-overlay.addEventListener('click', () => {
-    sidebar.classList.remove('open');
-    overlay.classList.remove('show');
-});
+if (hamburgerBtn) {
+    hamburgerBtn.addEventListener('click', () => {
+        sidebar.classList.toggle('open');
+        overlay.classList.toggle('show');
+    });
+}
+if (overlay) {
+    overlay.addEventListener('click', () => {
+        sidebar.classList.remove('open');
+        overlay.classList.remove('show');
+    });
+}
 
 // ===== NAVIGASI =====
 const titles = {
-    dashboard:'Dashboard', customers:'Manajemen Pelanggan', products:'Manajemen Produk',
-    catalog:'Katalog Produk', purchases:'Pembelian / Restock',
-    transactions:'Transaksi Penjualan'
+    dashboard: 'Dashboard', customers: 'Manajemen Pelanggan', products: 'Manajemen Produk',
+    catalog: 'Katalog Produk', purchases: 'Pembelian / Restock',
+    transactions: 'Transaksi Penjualan'
 };
 
 document.querySelectorAll('.sidebar-menu a').forEach(link => {
@@ -69,12 +78,12 @@ document.querySelectorAll('.sidebar-menu a').forEach(link => {
         sidebar.classList.remove('open');
         overlay.classList.remove('show');
         // Load data
-        if (sec==='dashboard')    loadStats();
-        if (sec==='customers')    loadCustomers();
-        if (sec==='products')     loadProducts();
-        if (sec==='catalog')      loadCatalog();
-        if (sec==='purchases')    loadPurchases();
-        if (sec==='transactions') loadTransactions();
+        if (sec === 'dashboard') loadStats();
+        if (sec === 'customers') loadCustomers();
+        if (sec === 'products') loadProducts();
+        if (sec === 'catalog') loadCatalog();
+        if (sec === 'purchases') loadPurchases();
+        if (sec === 'transactions') loadTransactions();
     });
 });
 
@@ -122,9 +131,10 @@ let produkList = [];
 let alamatSuggestions = [];
 
 async function loadCustomers() {
+    // Load semua pelanggan sekali untuk keperluan alamat suggestions
     allCustomers = await apiGet('get_pelanggan');
     buildAlamatSuggestions();
-    filterCustomers();
+    await filterCustomers();
 }
 
 function buildAlamatSuggestions() {
@@ -197,22 +207,21 @@ function selectAlamat(alamat) {
     filterCustomers();
 }
 
-function filterCustomers() {
-    const q = document.getElementById('searchCustomer').value.toLowerCase();
-    const alamatQ = document.getElementById('filterCustomerAlamat').value.toLowerCase();
-    const sort = document.getElementById('sortCustomer').value;
-    let data = [...allCustomers];
-    if (q) data = data.filter(c => c.nama.toLowerCase().includes(q) || c.no_hp.includes(q));
-    if (alamatQ) data = data.filter(c => c.alamat && c.alamat.toLowerCase().includes(alamatQ));
-    if (sort === 'az') data.sort((a,b) => a.nama.localeCompare(b.nama));
-    if (sort === 'za') data.sort((a,b) => b.nama.localeCompare(a.nama));
+async function filterCustomers() {
+    const q      = document.getElementById('searchCustomer').value;
+    const alamatQ = document.getElementById('filterCustomerAlamat').value;
+    const sort   = document.getElementById('sortCustomer').value;
+
+    // Kirim semua filter ke server
+    const params = new URLSearchParams({ search: q, alamat: alamatQ, sort }).toString();
+    const data = await apiGet('get_pelanggan', `&${params}`);
     renderCustomers(data);
 }
 
 function renderCustomers(data) {
     document.querySelector('#customersTable tbody').innerHTML = data.length === 0
         ? '<tr><td colspan="5" class="no-data">Tidak ada data pelanggan</td></tr>'
-        : data.map(c=>`<tr>
+        : data.map(c => `<tr>
             <td>${c.id_pelanggan}</td><td>${c.nama}</td><td>${c.no_hp}</td><td>${c.alamat}</td>
             <td><div class="action-buttons">
                 <button class="btn btn-primary btn-small" onclick="editCustomer(${c.id_pelanggan},'${c.nama}','${c.no_hp}','${encodeURIComponent(c.alamat)}')">Edit</button>
@@ -222,13 +231,13 @@ function renderCustomers(data) {
 
 function showCustomerModal() {
     document.getElementById('customerModalTitle').textContent = 'Tambah Pelanggan';
-    ['customerId','namaCustomer','noHpCustomer','alamatCustomer'].forEach(id=>document.getElementById(id).value='');
+    ['customerId', 'namaCustomer', 'noHpCustomer', 'alamatCustomer'].forEach(id => document.getElementById(id).value = '');
     openModal('customerModal');
 }
 
 function editCustomer(id, nama, no_hp, alamat) {
     document.getElementById('customerModalTitle').textContent = 'Edit Pelanggan';
-    document.getElementById('customerId').value   = id;
+    document.getElementById('customerId').value = id;
     document.getElementById('namaCustomer').value = nama;
     document.getElementById('noHpCustomer').value = no_hp;
     document.getElementById('alamatCustomer').value = decodeURIComponent(alamat);
@@ -236,37 +245,39 @@ function editCustomer(id, nama, no_hp, alamat) {
 }
 
 async function saveCustomer() {
-    const id    = document.getElementById('customerId').value;
-    const nama  = document.getElementById('namaCustomer').value;
+    const id = document.getElementById('customerId').value;
+    const nama = document.getElementById('namaCustomer').value;
     const no_hp = document.getElementById('noHpCustomer').value;
     const alamat = document.getElementById('alamatCustomer').value;
-    if (!nama||!no_hp||!alamat) { showAlert('Semua field wajib diisi','danger'); return; }
-    const res = await apiPost(id?'update_pelanggan':'add_pelanggan', id?{id_pelanggan:+id,nama,no_hp,alamat}:{nama,no_hp,alamat});
-    if (res.success) { showAlert(id?'Pelanggan diperbarui':'Pelanggan ditambahkan'); closeModal('customerModal'); loadCustomers(); }
-    else showAlert(res.message||'Gagal','danger');
+    if (!nama || !no_hp || !alamat) { showAlert('Semua field wajib diisi', 'danger'); return; }
+    const res = await apiPost(id ? 'update_pelanggan' : 'add_pelanggan', id ? { id_pelanggan: +id, nama, no_hp, alamat } : { nama, no_hp, alamat });
+    if (res.success) { showAlert(id ? 'Pelanggan diperbarui' : 'Pelanggan ditambahkan'); closeModal('customerModal'); loadCustomers(); }
+    else showAlert(res.message || 'Gagal', 'danger');
 }
 
 async function deleteCustomer(id) {
     if (!confirm('Hapus pelanggan ini?')) return;
-    const res = await apiPost('delete_pelanggan',{id});
+    const res = await apiPost('delete_pelanggan', { id });
     if (res.success) { showAlert('Pelanggan dihapus'); loadCustomers(); }
-    else showAlert('Gagal menghapus','danger');
+    else showAlert('Gagal menghapus', 'danger');
 }
 
 // ===== PRODUK (Unified: Table + Grid) =====
 let currentProductView = 'table';
 
 async function loadProducts() {
-    allProducts = await apiGet('get_produk');
-    buildCategoryFilter();
-    filterProducts();
+    // Load kategori sekali di awal untuk dropdown filter
+    await buildCategoryFilter();
+    // Lalu langsung panggil filter (akan fetch dari server)
+    await filterProducts();
     lucide.createIcons();
 }
 
-function buildCategoryFilter() {
+async function buildCategoryFilter() {
     const select = document.getElementById('filterProductCategory');
     const currentVal = select.value;
-    const categories = [...new Set(allProducts.map(p => p.jenis_produk).filter(Boolean))].sort();
+    // Ambil kategori unik langsung dari database
+    const categories = await apiGet('get_produk_categories');
     select.innerHTML = '<option value="all">Semua Kategori</option>' +
         categories.map(c => `<option value="${c}">${c}</option>`).join('');
     if ([...select.options].some(o => o.value === currentVal)) {
@@ -280,41 +291,34 @@ function setProductView(view) {
     document.querySelector(`.view-toggle-btn[data-view="${view}"]`).classList.add('active');
     document.getElementById('productTableView').style.display = view === 'table' ? 'block' : 'none';
     document.getElementById('productGridView').style.display = view === 'grid' ? 'block' : 'none';
-    filterProducts();
+    filterProducts(); // async, tapi tidak perlu await di sini
 }
 
-function filterProducts() {
-    const q = document.getElementById('searchProduct').value.toLowerCase();
-    const sort = document.getElementById('sortProduct').value;
-    const category = document.getElementById('filterProductCategory').value;
+async function filterProducts() {
+    // Baca nilai semua filter dari UI
+    const q           = document.getElementById('searchProduct').value;
+    const sort        = document.getElementById('sortProduct').value;
+    const category    = document.getElementById('filterProductCategory').value;
     const stockFilter = document.getElementById('filterProductStock').value;
-    let data = [...allProducts];
 
-    // Search
-    if (q) data = data.filter(p => p.nama_produk.toLowerCase().includes(q) || p.jenis_produk.toLowerCase().includes(q));
+    // Kirim semua parameter ke server sebagai query string
+    const params = new URLSearchParams({
+        search:       q,
+        category:     category,
+        stock_filter: stockFilter,
+        sort:         sort
+    }).toString();
 
-    // Category
-    if (category !== 'all') data = data.filter(p => p.jenis_produk === category);
+    // API.php yang sekarang lakukan WHERE + ORDER BY di SQL
+    const data = await apiGet('get_produk', `&${params}`);
 
-    // Stock
-    if (stockFilter === 'in_stock') data = data.filter(p => +p.stok > 10);
-    if (stockFilter === 'low_stock') data = data.filter(p => +p.stok > 0 && +p.stok <= 10);
-    if (stockFilter === 'out_stock') data = data.filter(p => +p.stok === 0);
+    // Simpan hasil query ke allProducts (untuk referensi edit/hapus)
+    allProducts = data;
 
-    // Sort
-    switch(sort) {
-        case 'az': data.sort((a,b) => a.nama_produk.localeCompare(b.nama_produk)); break;
-        case 'za': data.sort((a,b) => b.nama_produk.localeCompare(a.nama_produk)); break;
-        case 'price_low': data.sort((a,b) => +a.harga - +b.harga); break;
-        case 'price_high': data.sort((a,b) => +b.harga - +a.harga); break;
-        case 'stock_low': data.sort((a,b) => +a.stok - +b.stok); break;
-        case 'stock_high': data.sort((a,b) => +b.stok - +a.stok); break;
-    }
-
-    // Update count
+    // Update jumlah produk yang ditampilkan
     document.getElementById('productCount').textContent = `Menampilkan ${data.length} produk`;
 
-    // Render based on current view
+    // Render ke tabel dan grid
     renderProducts(data);
     renderProductGrid(data);
 }
@@ -332,7 +336,7 @@ function renderProducts(data) {
                     <button class="btn btn-primary btn-small" onclick="editProduct(${p.id_produk},'${encodeURIComponent(p.nama_produk)}',${p.harga},${p.stok},'${encodeURIComponent(p.jenis_produk)}')">Edit</button>
                     <button class="btn btn-danger btn-small" onclick="deleteProduct(${p.id_produk})">Hapus</button>
                 </div></td></tr>`;
-          }).join('');
+        }).join('');
 }
 
 function renderProductGrid(data) {
@@ -350,7 +354,7 @@ function renderProductGrid(data) {
         let stockClass = 'in-stock', stockText = `${stok} tersedia`;
         if (stok === 0) { stockClass = 'out-stock'; stockText = 'Habis'; }
         else if (stok <= 10) { stockClass = 'low-stock'; stockText = `${stok} tersisa`; }
-        return `<div class="product-card" style="animation-delay:${i*0.05}s">
+        return `<div class="product-card" style="animation-delay:${i * 0.05}s">
             <div class="product-card-icon"><i data-lucide="box"></i></div>
             <div class="product-card-category">${p.jenis_produk}</div>
             <div class="product-card-name" title="${p.nama_produk}">${p.nama_produk}</div>
@@ -367,7 +371,7 @@ function renderProductGrid(data) {
 
 function showProductModal() {
     document.getElementById('productModalTitle').textContent = 'Tambah Produk';
-    ['productId','namaProduk','hargaProduk','stokProduk','jenisProduk'].forEach(id=>document.getElementById(id).value='');
+    ['productId', 'namaProduk', 'hargaProduk', 'stokProduk', 'jenisProduk'].forEach(id => document.getElementById(id).value = '');
     openModal('productModal');
 }
 
@@ -395,7 +399,7 @@ async function saveProduct() {
 
     const body = id ? { id_produk: +id, nama_produk, harga, stok, jenis_produk } : { nama_produk, harga, stok, jenis_produk };
     const res = await apiPost(id ? 'update_produk' : 'add_produk', body);
-    
+
     if (res.success) {
         showAlert(id ? 'Produk diperbarui' : 'Produk ditambahkan');
         closeModal('productModal');
@@ -420,39 +424,46 @@ async function deleteProduct(id) {
 let pembelianProdukList = [];
 
 async function loadPurchases() {
-    allPurchases = await apiGet('get_pembelian');
-    filterPurchases();
+    await filterPurchases();
 }
 
-function filterPurchases() {
-    const q = document.getElementById('searchPurchase').value.toLowerCase();
+async function filterPurchases() {
+    const q      = document.getElementById('searchPurchase').value;
     const status = document.getElementById('filterPurchaseStatus').value;
-    let data = [...allPurchases];
-    if (q) data = data.filter(p => p.nama_produk.toLowerCase().includes(q) || p.tanggal.includes(q));
-    if (status !== 'all') {
-        if (status === 'pending') {
-            data = data.filter(p => ['pending', 'diproses', 'dikirim'].includes(p.status));
-        } else {
-            data = data.filter(p => p.status === status);
-        }
-    }
+
+    // Kirim filter ke server
+    const params = new URLSearchParams({ search: q, status }).toString();
+    const data = await apiGet('get_pembelian', `&${params}`);
+    allPurchases = data;
     renderPurchases(data);
 }
 
 function renderPurchases(data) {
     document.querySelector('#purchasesTable tbody').innerHTML = data.length === 0
-        ? '<tr><td colspan="7" class="no-data">Tidak ada data pembelian</td></tr>'
-        : data.map(p=>{
-            const badge = p.status==='diterima'?'success':(p.status==='pending'?'warning':'danger');
+        ? '<tr><td colspan="9" class="no-data">Tidak ada data pembelian</td></tr>'
+        : data.map(p => {
+            const badge = p.status === 'diterima' ? 'success' : (p.status === 'diproses' ? 'warning' : 'danger');
+            let actionHtml = '';
+            if (p.status === 'diterima') {
+                actionHtml = '<span style="color:var(--success);font-weight:600;">✔ Selesai</span>';
+            } else if (p.status === 'dibatalkan') {
+                actionHtml = '<span style="color:var(--danger);font-weight:600;">✖ Dibatalkan</span>';
+            } else {
+                actionHtml = `<div class="action-buttons">
+                    <button class="btn btn-warning btn-small" onclick="openUpdateStatus(${p.id_pembelian},'${p.status}')">Update</button>
+                    <button class="btn btn-danger btn-small" onclick="deletePurchase(${p.id_pembelian})">Hapus</button>
+                </div>`;
+            }
+            const penerima = p.nama_admin_penerima || '-';
+            const tglTerima = p.tanggal_diterima ? p.tanggal_diterima.substring(0, 10) : '-';
+
             return `<tr>
                 <td>${p.id_pembelian}</td><td>${p.tanggal}</td><td>${p.nama_produk}</td>
                 <td>${p.jumlah}</td><td>${rupiah(p.harga_beli)}</td>
                 <td><span class="badge badge-${badge}">${p.status}</span></td>
-                <td><div class="action-buttons">
-                    <button class="btn btn-warning btn-small" onclick="openUpdateStatus(${p.id_pembelian},'${p.status}')">Update</button>
-                    <button class="btn btn-danger btn-small" onclick="deletePurchase(${p.id_pembelian})">Hapus</button>
-                </div></td></tr>`;
-          }).join('');
+                <td>${penerima}</td><td>${tglTerima}</td>
+                <td>${actionHtml}</td></tr>`;
+        }).join('');
 }
 
 async function showPurchaseModal() {
@@ -486,8 +497,8 @@ async function showPurchaseModal() {
     };
 
     document.getElementById('tanggalPembelian').valueAsDate = new Date();
-    ['jumlahPembelian','hargaBeli'].forEach(id=>document.getElementById(id).value='');
-    document.getElementById('statusPembelian').value='';
+    ['jumlahPembelian', 'hargaBeli'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('statusPembelian').value = '';
     openModal('purchaseModal');
 }
 
@@ -512,63 +523,60 @@ function selectProdukPembelian(id, nama) {
 }
 
 async function savePurchase() {
-    const id_produk  = +document.getElementById('produkPembelianValue').value;
-    const tanggal    = document.getElementById('tanggalPembelian').value;
-    const jumlah     = +document.getElementById('jumlahPembelian').value;
+    const id_produk = +document.getElementById('produkPembelianValue').value;
+    const tanggal = document.getElementById('tanggalPembelian').value;
+    const jumlah = +document.getElementById('jumlahPembelian').value;
     const harga_beli = +document.getElementById('hargaBeli').value;
-    const status     = document.getElementById('statusPembelian').value;
-    if (!id_produk||!tanggal||!jumlah||!status) { showAlert('Semua field wajib diisi','danger'); return; }
-    const res = await apiPost('add_pembelian',{id_produk,tanggal,jumlah,harga_beli,status});
+    const status = document.getElementById('statusPembelian').value;
+    if (!id_produk || !tanggal || !jumlah || !status) { showAlert('Semua field wajib diisi', 'danger'); return; }
+    const res = await apiPost('add_pembelian', { id_produk, tanggal, jumlah, harga_beli, status });
     if (res.success) { showAlert('Pembelian disimpan'); closeModal('purchaseModal'); loadPurchases(); }
-    else showAlert(res.message||'Gagal','danger');
+    else showAlert(res.message || 'Gagal', 'danger');
 }
 
 function openUpdateStatus(id, status) {
-    document.getElementById('updatePembelianId').value     = id;
-    document.getElementById('statusPembelianBaru').value   = status;
+    document.getElementById('updatePembelianId').value = id;
+    document.getElementById('statusPembelianBaru').value = status;
     openModal('statusPembelianModal');
 }
 
 async function updateStatusPembelian() {
-    const id     = +document.getElementById('updatePembelianId').value;
+    const id = +document.getElementById('updatePembelianId').value;
     const status = document.getElementById('statusPembelianBaru').value;
-    const res    = await apiPost('update_status_pembelian',{id,status});
+    const res = await apiPost('update_status_pembelian', { id, status });
     if (res.success) { showAlert('Status diperbarui'); closeModal('statusPembelianModal'); loadPurchases(); }
-    else showAlert('Gagal','danger');
+    else showAlert('Gagal', 'danger');
 }
 
 async function deletePurchase(id) {
     if (!confirm('Hapus pembelian ini?')) return;
-    const res = await apiPost('delete_pembelian',{id});
+    const res = await apiPost('delete_pembelian', { id });
     if (res.success) { showAlert('Pembelian dihapus'); loadPurchases(); }
-    else showAlert('Gagal','danger');
+    else showAlert('Gagal', 'danger');
 }
 
 // ===== TRANSAKSI =====
 let transactionItems = [];
 
 async function loadTransactions() {
-    allTransactions = await apiGet('get_transaksi');
-    filterTransactions();
+    await filterTransactions();
 }
 
-function filterTransactions() {
-    const q = document.getElementById('searchTransaction').value.toLowerCase();
+async function filterTransactions() {
+    const q    = document.getElementById('searchTransaction').value;
     const sort = document.getElementById('sortTransaction').value;
-    let data = [...allTransactions];
-    if (q) data = data.filter(t => t.nama_pelanggan.toLowerCase().includes(q) || t.nama_admin.toLowerCase().includes(q) || t.tanggal.includes(q));
-    switch(sort) {
-        case 'oldest': data.sort((a,b)=>a.id_transaksi-b.id_transaksi); break;
-        case 'total_high': data.sort((a,b)=>(+b.total)-(+a.total)); break;
-        case 'total_low': data.sort((a,b)=>(+a.total)-(+b.total)); break;
-    }
+
+    // Kirim filter ke server
+    const params = new URLSearchParams({ search: q, sort }).toString();
+    const data = await apiGet('get_transaksi', `&${params}`);
+    allTransactions = data;
     renderTransactions(data);
 }
 
 function renderTransactions(data) {
     document.querySelector('#transactionsTable tbody').innerHTML = data.length === 0
         ? '<tr><td colspan="6" class="no-data">Tidak ada data transaksi</td></tr>'
-        : data.map(t=>`<tr>
+        : data.map(t => `<tr>
             <td>${t.id_transaksi}</td><td>${t.tanggal}</td>
             <td>${t.nama_pelanggan}</td><td>${t.nama_admin}</td><td>${rupiah(t.total)}</td>
             <td><div class="action-buttons">
@@ -623,8 +631,8 @@ async function showTransactionModal() {
     prodSearchInput.oninput = () => {
         prodHiddenInput.value = '';
         const q = prodSearchInput.value.toLowerCase();
-        const filtered = produkList.filter(p => 
-            (p.nama_produk || '').toLowerCase().includes(q) || 
+        const filtered = produkList.filter(p =>
+            (p.nama_produk || '').toLowerCase().includes(q) ||
             (p.jenis_produk || '').toLowerCase().includes(q)
         );
         renderProdukDropdown(filtered);
@@ -638,7 +646,7 @@ async function showTransactionModal() {
         prodDropdown.classList.add('show');
     };
 
-    ['jumlahTransaksi','hargaTransaksi'].forEach(id=>document.getElementById(id).value='');
+    ['jumlahTransaksi', 'hargaTransaksi'].forEach(id => document.getElementById(id).value = '');
     openModal('transactionModal');
 }
 
@@ -711,7 +719,7 @@ function addTransactionItem() {
 
 function renderTransactionItems() {
     let total = 0;
-    document.getElementById('transactionItems').innerHTML = transactionItems.map((item,i)=>{
+    document.getElementById('transactionItems').innerHTML = transactionItems.map((item, i) => {
         const sub = item.jumlah * item.harga; total += sub;
         return `<div class="card" style="padding:14px;margin-bottom:8px;">
             <div class="flex" style="justify-content:space-between;align-items:center;">
@@ -722,22 +730,24 @@ function renderTransactionItems() {
     document.getElementById('transactionGrandTotal').textContent = rupiah(total);
 }
 
-function removeItem(i) { transactionItems.splice(i,1); renderTransactionItems(); }
+function removeItem(i) { transactionItems.splice(i, 1); renderTransactionItems(); }
 
 async function saveTransaction() {
     const id_pelanggan = +document.getElementById('pelangganTransaksiValue').value;
-    if (!id_pelanggan) { showAlert('Pilih pelanggan','warning'); return; }
-    if (!transactionItems.length) { showAlert('Tambahkan minimal satu item','warning'); return; }
-    const res = await apiPost('add_transaksi',{id_pelanggan, items:transactionItems});
+    if (!id_pelanggan) { showAlert('Pilih pelanggan', 'warning'); return; }
+    if (!transactionItems.length) { showAlert('Tambahkan minimal satu item', 'warning'); return; }
+    const res = await apiPost('add_transaksi', { id_pelanggan, items: transactionItems });
     if (res.success) { showAlert('Transaksi berhasil dibuat'); closeModal('transactionModal'); loadTransactions(); }
-    else showAlert(res.message||'Gagal','danger');
+    else showAlert(res.message || 'Gagal', 'danger');
 }
 
 async function viewDetail(id) {
     const data = await apiGet('get_detail_transaksi', `&id=${id}`);
     let grand = 0;
-    const rows = data.map(d=>{ const sub=d.jumlah*d.harga; grand+=sub;
-        return `<tr><td>${d.nama_produk}</td><td>${d.jumlah}</td><td>${rupiah(d.harga)}</td><td>${rupiah(sub)}</td></tr>`; }).join('');
+    const rows = data.map(d => {
+        const sub = d.jumlah * d.harga; grand += sub;
+        return `<tr><td>${d.nama_produk}</td><td>${d.jumlah}</td><td>${rupiah(d.harga)}</td><td>${rupiah(sub)}</td></tr>`;
+    }).join('');
     document.getElementById('detailsContent').innerHTML =
         `<p style="margin-bottom:12px;"><strong>ID Transaksi:</strong> ${id}</p><hr>
         <table class="table" style="width:100%"><thead><tr><th>Produk</th><th>Jumlah</th><th>Harga</th><th>Total</th></tr></thead>
@@ -748,9 +758,9 @@ async function viewDetail(id) {
 
 async function deleteTransaction(id) {
     if (!confirm('Hapus transaksi ini?')) return;
-    const res = await apiPost('delete_transaksi',{id});
+    const res = await apiPost('delete_transaksi', { id });
     if (res.success) { showAlert('Transaksi dihapus'); loadTransactions(); }
-    else showAlert('Gagal','danger');
+    else showAlert('Gagal', 'danger');
 }
 
 

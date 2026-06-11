@@ -1,7 +1,7 @@
 <!-- ====== PELANGGAN ====== -->
 <div id="customersSection" class="content-section">
     <div class="section-header">
-        <h2>Manajemen Pelanggan</h2>
+        <h2>Manajemen Pelanggan<h2>
         <button class="btn btn-primary" onclick="showCustomerModal()">+ Tambah Pelanggan</button>
     </div>
     <div class="filter-bar">

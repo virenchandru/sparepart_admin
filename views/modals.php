@@ -60,8 +60,8 @@
             <div class="form-group"><label>Status</label>
                 <select id="statusPembelian">
                     <option value="">-- Pilih Status --</option>
+                    <option value="diproses">Diproses</option>
                     <option value="diterima">Diterima</option>
-                    <option value="pending">Pending</option>
                     <option value="dibatalkan">Dibatalkan</option>
                 </select>
             </div>
@@ -84,7 +84,7 @@
             <input type="hidden" id="updatePembelianId">
             <div class="form-group"><label>Status</label>
                 <select id="statusPembelianBaru">
-                    <option value="pending">Pending</option>
+                    <option value="diproses">Diproses</option>
                     <option value="diterima">Diterima</option>
                     <option value="dibatalkan">Dibatalkan</option>
                 </select>
